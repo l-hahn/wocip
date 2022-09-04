@@ -44,6 +44,7 @@ def do_analysis(url_list, probe_size, thread_count, use_proxy=True):
         for thread in threads
     ):
         print(f"Threads are still execution ... {wait_string[ctr%4]}\r", end="")
+        ctr += 1
         sleep(0.5)
     print("Finished!", " "*100)
 
