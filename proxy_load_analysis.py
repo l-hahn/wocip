@@ -7,14 +7,15 @@ from time import sleep
 def do_request(url_list, count, time_delta, use_proxy=True):
     global proxies
     for url in choices(url_list, k=count):
-        if use_proxy:
-            start = datetime.now()
-            response = requests.post(url, proxies=proxies)
-            time_diff = datetime.now() - start
-        else:
-            start = datetime.now()
-            response = requests.post(url)
-            time_diff = datetime.now() - start
+        kwargs = {'url':url,'proxies':proxies} if use_proxy else {'url':url}
+        start = datetime.now()
+        try:
+            response = requests.get(**kwargs)
+        except Exception as e:
+            print("Some error ...", e)
+            time_delta.append(-1)
+            continue
+        time_diff = datetime.now() - start
         if response.status_code in (200, '200'):
             time_delta.append(time_diff)
         else:
