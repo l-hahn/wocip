@@ -102,6 +102,7 @@ with open(random_links_file, "r") as file:
 
 allfile = open("results_rpi-proxies.txt","w")
 allfile.write("rpi\tproxy\tprobesize\tthreads\tmin(s)\tmed(s)\tavg(s)\tmax(s)\tsd(s)\terr\n")
+first_round = True
 ### ANALYSIS DONE IN SEVERAL CONFIGS ##########################################
 for proxy,filename in proxy_file_mappings.items():
     proxies = {
@@ -109,7 +110,7 @@ for proxy,filename in proxy_file_mappings.items():
         'https': f'http://{proxy}:8080'
     }
     with open(f"results_{filename}-proxy.txt", "w") as f:
-        #f.write("proxy\tprobesize\tthreads\tmin(s)\tmed(s)\tavg(s)\tmax(s)\tsd(s)\terr\n")
+        f.write("proxy\tprobesize\tthreads\tmin(s)\tmed(s)\tavg(s)\tmax(s)\tsd(s)\terr\n")
         for use_proxy in (False, True):
             for probe_size in (10,25,50,100):
                 for thread_count in (1,5,10,20):
@@ -129,7 +130,11 @@ for proxy,filename in proxy_file_mappings.items():
                     print(result_str)
 
                     f.write(data_str)
-                    allfile.write(
-                        f"{filename}\t{data_str}"
-                    )
+                    f.flush()
+                    if use_proxy or (not use_proxy and first_round):
+                        allfile.write(
+                            f"{filename}\t{data_str}"
+                        )
+                        allfile.flush()
+    first_round = False
 allfile.close()
