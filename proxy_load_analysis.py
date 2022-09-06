@@ -3,6 +3,7 @@ from datetime import datetime
 from random import choices
 from threading import Thread#
 from time import sleep
+from math import sqrt
 
 def do_request(url_list, count, time_delta, use_proxy=True):
     global proxies
@@ -66,21 +67,30 @@ def do_test(url_list, probe_size, thread_count, use_proxy):
         for time_delta in thread_timedeltas
     ]
     time_delta_values = [val for vals in time_deltas for val in vals]
-    
+    ctr_deltas = len(time_delta_values)    
     min_delta = min(time_delta_values)
     max_delta = max(time_delta_values)
-    avg_delta = sum(time_delta_values)/len(time_delta_values)
-    err_delta = (thread_count * probe_size) - len(time_delta_values)
-    result = (min_delta, avg_delta, max_delta, err_delta)
+    avg_delta = sum(time_delta_values)/ctr_deltas
+    err_delta = (thread_count * probe_size) - ctr_deltas
+    std_delta = sqrt(sum( (delta-avg_delta)**2 for delta in time_delta_values)/(ctr_deltas-1))
+    sort_delta = sorted(time_delta_values)
+    med_delta = sort_delta[(ctr_deltas-1)//2]
+    if len(time_delta_values) % 2 == 0:
+        med_delta = (med_delta + sort_delta[(ctr_deltas)//2])/2
+
+    result = (min_delta, med_delta, avg_delta, max_delta, std_delta, err_delta)
     return result
     
 
 
 ### INIT GET VALUES ###########################################################
-proxies = {
-   'http': 'http://rpi-proxy:8080',
-   'https': 'http://rpi-proxy:8080'
+proxy_file_mappings = {
+    "rpi-proxy-4": "rpi-4",
+    "rpi-proxy-2": "rpi-2",
+    "rpi-proxy-0": "rpi-0",
+    "rpi-proxy-pico": "rpi-pico"
 }
+
 
 random_links_file = "random_wiki_links.txt"
 with open(random_links_file, "r") as file:
@@ -90,24 +100,36 @@ with open(random_links_file, "r") as file:
         if len(line.rstrip()) > 0
     ]
 
-
-
+allfile = open("results_rpi-proxies.txt","w")
+allfile.write("rpi\tproxy\tprobesize\tthreads\tmin(s)\tmed(s)\tavg(s)\tmax(s)\tsd(s)\terr\n")
 ### ANALYSIS DONE IN SEVERAL CONFIGS ##########################################
-with open("results.txt", "w") as f:
-    f.write("proxy\tprobesize\tthreads\tmin(s)\tavg(s)\tmax(s)\terr\n")
-    for use_proxy in (False, True):
-        for probe_size in (10,25,50,100):
-            for thread_count in (1,5,10,20):
-                min_delta, avg_delta, max_delta, err_delta = do_test(
-                    link_list, probe_size, thread_count, use_proxy
-                )
-                result_str = (
-                    f"avg: {avg_delta}s, min: {min_delta}s, max: {max_delta}s | err: "
-                    f"{err_delta}/{probe_size*thread_count} | thrds: {thread_count}, "
-                    f"proxy: {use_proxy}, probe_size: {probe_size}"
-                )
-                print(result_str)
-                f.write(
-                    f"{use_proxy}\t{probe_size}\t{thread_count}\t{min_delta}"
-                    f"\t{avg_delta}\t{max_delta}\t{err_delta}\n"
-                )
+for proxy,filename in proxy_file_mappings.items():
+    proxies = {
+        'http': f'http://{proxy}:8080',
+        'https': f'http://{proxy}:8080'
+    }
+    with open(f"results_{filename}-proxy.txt", "w") as f:
+        #f.write("proxy\tprobesize\tthreads\tmin(s)\tmed(s)\tavg(s)\tmax(s)\tsd(s)\terr\n")
+        for use_proxy in (False, True):
+            for probe_size in (10,25,50,100):
+                for thread_count in (1,5,10,20):
+                    min_delta, med_delta, avg_delta, max_delta, std_delta, err_delta = do_test(
+                        link_list, probe_size, thread_count, use_proxy
+                    )
+                    data_str = (
+                        f"{use_proxy}\t{probe_size}\t{thread_count}\t{min_delta}\t{med_delta}"
+                        f"\t{avg_delta}\t{max_delta}\t{std_delta}\t{err_delta}\n"
+                    )
+                    result_str = (
+                        f"avg: {avg_delta}s, med:{med_delta} min: {min_delta}s, max: {max_delta}s, "
+                        f"std: {std_delta}s | err: {err_delta}/{probe_size*thread_count} | "
+                        f"thrds: {thread_count}, proxy: {use_proxy}, probe_size: {probe_size}, "
+                        f"rpi: {filename}"
+                    )
+                    print(result_str)
+
+                    f.write(data_str)
+                    allfile.write(
+                        f"{filename}\t{data_str}"
+                    )
+allfile.close()
